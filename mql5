@@ -1,0 +1,170 @@
+
+//+------------------------------------------------------------------+
+//|                                              EA Frankenstein.mq5 |
+//|                            Copyright © 2021, Forex Robot Easy Team |
+//|                                                   forexroboteasy.com |
+//+------------------------------------------------------------------+
+
+// Define input parameters
+input double LotSize = 0.01; // Lot size for trading
+input int StopLoss = 50; // Stop loss in pips
+input int TakeProfit = 100; // Take profit in pips
+
+// Define global variables
+int ticket = 0; // Order ticket number
+bool tradePanelOpened = false; // Flag to check if trade panel is already opened
+
+//+------------------------------------------------------------------+
+//| Custom indicator initialization function                         |
+//+------------------------------------------------------------------+
+int OnInit()
+{
+    // Set optimization criterion
+    OptimizationCriterion(OPTIM_CRITERION_PROFIT);
+
+    // Set currency pairs for news filter
+    SetNewsFilter('USD*');
+
+    // Set timeframe
+    if (Period() != PERIOD_M5)
+    {
+        Print('Please run this EA on the M5 timeframe!');
+        ExpertRemove();
+        return INIT_FAILED;
+    }
+
+    // Initialize trade panel
+    if (!tradePanelOpened)
+    {
+        OpenTradePanel();
+        tradePanelOpened = true;
+    }
+
+    return INIT_SUCCEEDED;
+}
+
+//+------------------------------------------------------------------+
+//| Custom indicator deinitialization function                       |
+//+------------------------------------------------------------------+
+void OnDeinit(const int reason)
+{
+    // Close trade panel
+    CloseTradePanel();
+}
+
+//+------------------------------------------------------------------+
+//| Custom indicator start function                                   |
+//+------------------------------------------------------------------+
+void OnTick()
+{
+    // Check for new bar on M5 timeframe
+    if (isNewBar())
+    {
+        // Get price channel
+        double upperChannel = iHigh(NULL, PERIOD_M5, 1);
+        double lowerChannel = iLow(NULL, PERIOD_M5, 1);
+
+        // Get machine learning prediction
+        double prediction = getMachineLearningPrediction();
+
+        // Check if price is above upper channel and machine learning prediction is bullish
+        if (Bid > upperChannel && prediction > 0)
+        {
+            // Open buy order
+            ticket = OrderSend(Symbol(), OP_BUY, LotSize, Ask, 0, Ask - StopLoss * Point, Ask + TakeProfit * Point, 'Buy Order', 0, 0, Green);
+        }
+        // Check if price is below lower channel and machine learning prediction is bearish
+        else if (Bid < lowerChannel && prediction < 0)
+        {
+            // Open sell order
+            ticket = OrderSend(Symbol(), OP_SELL, LotSize, Bid, 0, Bid + StopLoss * Point, Bid - TakeProfit * Point, 'Sell Order', 0, 0, Red);
+        }
+    }
+
+    // Check for order close conditions
+    if (ticket > 0 && OrderSelect(ticket, SELECT_BY_TICKET))
+    {
+        // Check if order is in profit
+        if (OrderProfit() > 0)
+        {
+            // Calculate adaptive take profit based on profit factor
+            double profitFactor = getProfitFactor();
+            double adaptiveTakeProfit = TakeProfit * profitFactor;
+
+            // Modify order take profit level
+            OrderModify(ticket, 0, OrderOpenPrice(), OrderOpenPrice() - StopLoss * Point, 0, Green);
+
+            // Check if profit reaches adaptive take profit level
+            if (OrderProfit() >= adaptiveTakeProfit * Point)
+            {
+                // Close order
+                OrderClose(ticket, OrderLots(), Bid, 0, Green);
+                ticket = 0;
+            }
+        }
+        // Check if order is in loss
+        else if (OrderProfit() < 0)
+        {
+            // Close order
+            OrderClose(ticket, OrderLots(), Bid, 0, Red);
+            ticket = 0;
+        }
+    }
+}
+
+//+------------------------------------------------------------------+
+//| Check if a new bar has formed on M5 timeframe                     |
+//+------------------------------------------------------------------+
+bool isNewBar()
+{
+    static datetime lastBarTime = 0;
+
+    if (Time[0] > lastBarTime)
+    {
+        lastBarTime = Time[0];
+        return true;
+    }
+
+    return false;
+}
+
+//+------------------------------------------------------------------+
+//| Get machine learning prediction                                   |
+//+------------------------------------------------------------------+
+double getMachineLearningPrediction()
+{
+    // Implement your machine learning algorithm here
+    // Return the prediction as a double value
+    return 0.5;
+}
+
+//+------------------------------------------------------------------+
+//| Calculate profit factor                                           |
+//+------------------------------------------------------------------+
+double getProfitFactor()
+{
+    // Implement your profit factor calculation algorithm here
+    // Return the profit factor as a double value
+    return 1.5;
+}
+
+//+------------------------------------------------------------------+
+//| Open trade panel                                                  |
+//+------------------------------------------------------------------+
+void OpenTradePanel()
+{
+    // Implement code to open the trade panel here
+    // This panel should have advanced functionalities for managing trades
+}
+
+//+------------------------------------------------------------------+
+//| Close trade panel                                                 |
+//+------------------------------------------------------------------+
+void CloseTradePanel()
+{
+    // Implement code to close the trade panel here
+}
+
+//+------------------------------------------------------------------+
+//| End of program                                                    |
+//+------------------------------------------------------------------+
